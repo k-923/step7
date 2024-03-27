@@ -79,48 +79,62 @@ class ProductController extends Controller
 
     public function edit(Product $product)
     {
-        $companies = Company::all();
+        try {
+            $companies = Company::all();
+    
+            return view('products.edit', compact('product', 'companies'));
 
-        return view('products.edit', compact('product', 'companies'));
+        } catch (\Exception $e) {
+
+            return back()->withError('処理を実行中にエラーが発生しました。お手数ですが管理者までご連絡ください。');
+        }
     }
 
     public function update(Request $request, Product $product)
     {
-        $request->validate([
-            'product_name' => 'required',
-            'company_id'=> 'required',
-            'price' => 'required',
-            'stock' => 'required',
-            'comment' => 'nullable',
-            'img_path' => 'nullable|image',
-        ]);
+        try {
+            $request->validate([
+                'product_name' => 'required',
+                'company_id'=> 'required',
+                'price' => 'required',
+                'stock' => 'required',
+                'comment' => 'nullable',
+                'img_path' => 'nullable|image',
+            ]);
+    
+            $product->product_name = $request->product_name;
+            $product->company_id = $request->company_id;
+            $product->price = $request->price;
+            $product->stock = $request->stock;
+            $product->comment = $request->comment;
+    
+            if($request->hasFile('img_path')){ 
+                $filename = $request->img_path->getClientOriginalName();
+                $filePath = $request->img_path->storeAs('products', $filename, 'public');
+                $product->img_path = '/storage/' . $filePath;
+            }
+    
+            $product->save();
+    
+            return redirect()->route('products.index')
+                ->with('success', 'Product updated successfully');
 
+        } catch (\Exception $e) {
 
-        $product->product_name = $request->product_name;
-        $product->company_id = $request->company_id;
-        $product->price = $request->price;
-        $product->stock = $request->stock;
-        $product->comment = $request->comment;
-
-        if($request->hasFile('img_path')){ 
-            $filename = $request->img_path->getClientOriginalName();
-            $filePath = $request->img_path->storeAs('products', $filename, 'public');
-            $product->img_path = '/storage/' . $filePath;
+            return back()->withError('処理を実行中にエラーが発生しました。お手数ですが管理者までご連絡ください。');
         }
-
-        $product->save();
-
-        return redirect()->route('products.index')
-            ->with('success', 'Product updated successfully');
     }
 
-    public function destroy(Product $product)
+       public function destroy(Product $product)
     {
+        try {
+             $product->delete();
+            return redirect('/products')->with('success', 'Product deleted successfully');
 
-        $product->delete();
+            } catch (\Exception $e) {
 
-
-        return redirect('/products');
-
+            return back()->withError('処理を実行中にエラーが発生しました。お手数ですが管理者までご連絡ください。');
+            }
     }
+
 }

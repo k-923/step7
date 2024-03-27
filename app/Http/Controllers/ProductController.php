@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Models\Product; 
 use App\Models\Company; 
 use Illuminate\Http\Request; 
+use Illuminate\Support\Facades\DB;
 
 
 class ProductController extends Controller 
@@ -39,32 +40,40 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+            $request->validate([
+                'product_name' => 'required', 
+                'company_id' => 'required',
+                'price' => 'required',
+                'stock' => 'required',
+                'comment' => 'nullable',
+                'img_path' => 'nullable|image',
+            ]);
 
-        $request->validate([
-            'product_name' => 'required', 
-            'company_id' => 'required',
-            'price' => 'required',
-            'stock' => 'required',
-            'comment' => 'nullable',
-            'img_path' => 'nullable|image',
-        ]);
+            DB::beginTransaction();
 
-        $product = new Product([
-            'product_name' => $request->get('product_name'),
-            'company_id' => $request->get('company_id'),
-            'price' => $request->get('price'),
-            'stock' => $request->get('stock'),
-            'comment' => $request->get('comment'),
-        ]);
+        try {
+            $product = new Product([
+                'product_name' => $request->get('product_name'),
+                'company_id' => $request->get('company_id'),
+                'price' => $request->get('price'),
+                'stock' => $request->get('stock'),
+                'comment' => $request->get('comment'),
+            ]);
+    
+            if($request->hasFile('img_path')){ 
+                $filename = $request->img_path->getClientOriginalName();
+                $filePath = $request->img_path->storeAs('products', $filename, 'public');
+                $product->img_path = '/storage/' . $filePath;
+            }
+            DB::commit();
 
-
-        if($request->hasFile('img_path')){ 
-            $filename = $request->img_path->getClientOriginalName();
-            $filePath = $request->img_path->storeAs('products', $filename, 'public');
-            $product->img_path = '/storage/' . $filePath;
+            $product->save();
+    
+        } catch (\Exception $e) {
+            DB::rollback();
+            
+            return back()->withError('処理を実行中にエラーが発生しました。お手数ですが管理者までご連絡ください。');
         }
-
-        $product->save();
 
         return redirect('products');
     }
@@ -79,20 +88,25 @@ class ProductController extends Controller
 
     public function edit(Product $product)
     {
+
+            DB::beginTransaction();
+
         try {
             $companies = Company::all();
-    
-            return view('products.edit', compact('product', 'companies'));
+        
+            DB::commit();
 
         } catch (\Exception $e) {
+            DB::rollback();
 
             return back()->withError('処理を実行中にエラーが発生しました。お手数ですが管理者までご連絡ください。');
         }
+
+        return view('products.edit', compact('product', 'companies'));
     }
 
     public function update(Request $request, Product $product)
     {
-        try {
             $request->validate([
                 'product_name' => 'required',
                 'company_id'=> 'required',
@@ -101,7 +115,10 @@ class ProductController extends Controller
                 'comment' => 'nullable',
                 'img_path' => 'nullable|image',
             ]);
-    
+
+            DB::beginTransaction();
+
+        try {
             $product->product_name = $request->product_name;
             $product->company_id = $request->company_id;
             $product->price = $request->price;
@@ -113,28 +130,38 @@ class ProductController extends Controller
                 $filePath = $request->img_path->storeAs('products', $filename, 'public');
                 $product->img_path = '/storage/' . $filePath;
             }
-    
+
+            DB::commit();
+
             $product->save();
-    
-            return redirect()->route('products.index')
-                ->with('success', 'Product updated successfully');
 
         } catch (\Exception $e) {
+            DB::rollback();
 
             return back()->withError('処理を実行中にエラーが発生しました。お手数ですが管理者までご連絡ください。');
         }
+
+        return redirect()->route('products.index')
+        ->with('success', 'Product updated successfully');
     }
 
        public function destroy(Product $product)
     {
+            DB::beginTransaction();
+
         try {
+            DB::commit();
+
              $product->delete();
-            return redirect('/products')->with('success', 'Product deleted successfully');
 
-            } catch (\Exception $e) {
-
+        } catch (\Exception $e) {
+            DB::rollback();
+            
             return back()->withError('処理を実行中にエラーが発生しました。お手数ですが管理者までご連絡ください。');
-            }
+        }
+        
+        return redirect('/products')->with('success', 'Product deleted successfully');
+
     }
 
 }
